@@ -1,10 +1,15 @@
 package TD1.moi;
 
+import java.io.File;
+import java.net.URI;
+import java.util.List;
+
 import static TD1.moi.utils.Utils.*;
 
 import TD1.moi.utils.CloseableIterator;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 public class Main {
@@ -30,9 +35,14 @@ public class Main {
 			conf.setJars(new String [] {source});
 		}
 
-		try (JavaSparkContext sc = new JavaSparkContext(conf)) {
+		File inFile = new File("data-2018.csv");
+		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-2018.csv").toURL(), inFile);
 
-			// Do your analysis here starting with sc
+		try (JavaSparkContext sc = new JavaSparkContext(conf)) {
+			
+			JavaRDD<String> raw = sc.textFile(inFile.getAbsolutePath(), 14*8);
+			List<String> res = raw.take(10);
+			res.stream().forEach(System.out::println);
 		}
 
 		long s = (System.currentTimeMillis() - start) / 1000;
