@@ -1,11 +1,8 @@
-#set( $symbol_pound = '#' )
-#set( $symbol_dollar = '$' )
-#set( $symbol_escape = '\' )
-package ${package};
+package TD1.moi;
 
-import static ${package}.utils.Utils.*;
+import static TD1.moi.utils.Utils.*;
 
-import ${package}.utils.CloseableIterator;
+import TD1.moi.utils.CloseableIterator;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -15,7 +12,7 @@ public class Main {
 	public static void main(String[] args) throws Exception {
 
 		long start = System.currentTimeMillis();
-		SparkConf conf = new SparkConf().setAppName("${artifactId}");
+		SparkConf conf = new SparkConf().setAppName("TD1");
 
 		String master = System.getProperty("spark.master");
 		if (master == null || master.trim().length() == 0) {

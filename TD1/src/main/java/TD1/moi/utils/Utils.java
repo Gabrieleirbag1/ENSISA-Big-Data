@@ -1,7 +1,4 @@
-#set( $symbol_pound = '#' )
-#set( $symbol_dollar = '$' )
-#set( $symbol_escape = '\' )
-package ${package}.utils;
+package TD1.moi.utils;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -37,11 +34,11 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import ${package}.utils.CloseableIterator;
-import ${package}.utils.HttpClientUtils;
-import ${package}.utils.HttpClientUtils.ContentStreamWithRetries;
-import ${package}.utils.HttpClientUtils.Response;
-import ${package}.utils.HttpClientUtils.Response;
+import TD1.moi.utils.CloseableIterator;
+import TD1.moi.utils.HttpClientUtils;
+import TD1.moi.utils.HttpClientUtils.ContentStreamWithRetries;
+import TD1.moi.utils.HttpClientUtils.Response;
+import TD1.moi.utils.HttpClientUtils.Response;
 import scala.Tuple2;
 
 public class Utils {

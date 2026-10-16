@@ -1,7 +1,4 @@
-#set( $symbol_pound = '#' )
-#set( $symbol_dollar = '$' )
-#set( $symbol_escape = '\' )
-package ${package}.utils;
+package TD1.moi.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,7 +57,7 @@ public class HttpClientUtils {
 		/**
 		 * Might return false in case of a 304 response...
 		 * This imples this stream was obtained using a "last-modified" or a "if-none-match" header
-		 * @see HttpClientUtils${symbol_pound}get200(String, int, Header...)
+		 * @see HttpClientUtils#get200(String, int, Header...)
 		 */
 		public boolean hasAnswer() {
 			return this.res != null;
