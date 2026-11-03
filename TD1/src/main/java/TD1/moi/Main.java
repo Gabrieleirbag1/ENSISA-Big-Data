@@ -1,5 +1,7 @@
 package TD1.moi;
 
+import static TD1.moi.utils.Utils.downloadIfAbsent;
+
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
@@ -24,18 +26,6 @@ public class Main {
 	private static final int IDX_TOTAL_GHG = 76;
 	private static final int IDX_GDP = 5;
 
-	/** Télécharge l'URL vers le fichier si celui-ci n'existe pas encore. */
-	static void downloadIfAbsent(URL url, File file) throws Exception {
-		if (file.exists() && file.length() > 0) {
-			return;
-		}
-		System.out.println("Downloading " + url + " ...");
-		try (InputStream in = url.openStream()) {
-			Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-		}
-	}
-
-	/** Découpe une ligne CSV (gère les champs entre guillemets et les champs vides finaux). */
 	static String[] fromCSV(String line, char sep) {
 		List<String> fields = new ArrayList<>();
 		StringBuilder sb = new StringBuilder();
@@ -88,10 +78,8 @@ public class Main {
 		}
 
 		File inFile = new File("ghg18.csv");
-		downloadIfAbsent(
-			new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-2018.csv").toURL(),
-			inFile
-		);
+		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-2018.csv").toURL(), inFile);
+
 		try (JavaSparkContext sc = new JavaSparkContext(conf)) {
 			JavaRDD<String> raw = sc.textFile(inFile.getAbsolutePath(), 14*5);
 
