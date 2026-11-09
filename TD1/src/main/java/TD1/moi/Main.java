@@ -54,7 +54,6 @@ public class Main {
 		return fields.toArray(new String[0]);
 	}
 
-	/** Pour chaque continent : (pays, PIB par unité de GES) maximal pour l'année donnée. */
 	static Map<String, Tuple2<String, Long>> analyse(JavaSparkContext sc, int year) throws Exception {
 		File inFile = new File("ghg" + year + ".csv");
 		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-" + year + ".csv").toURL(), inFile);
@@ -76,7 +75,7 @@ public class Main {
 				String ghgAsStr = c._3();
 				int coma = ghgAsStr.indexOf('.');
 				int ghg = -1;
-				if (coma >= 0) { // format should be XX.XXX
+				if (coma >= 0) {
 					int decimals = ghgAsStr.length() - coma - 1;
 					if (decimals == 3) {
 						ghgAsStr = ghgAsStr.substring(0, coma) + ghgAsStr.substring(coma + 1);
@@ -126,7 +125,6 @@ public class Main {
 			System.out.println("Master found to be " + master);
 		}
 
-		// Tries to determine necessary jar
 		String source = Main.class.getProtectionDomain().getCodeSource().getLocation().getPath();
 		if (source.endsWith(".jar")) {
 			conf.setJars(new String[] { source });
