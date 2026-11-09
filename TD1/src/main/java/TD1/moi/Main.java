@@ -1,11 +1,10 @@
 package TD1.moi;
 
 import static TD1.moi.utils.Utils.downloadIfAbsent;
+import static TD1.moi.utils.Utils.fromCSV;
 
 import java.io.File;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -23,36 +22,6 @@ public class Main {
 	private static final int IDX_COUNTRY = 0;
 	private static final int IDX_TOTAL_GHG = 76;
 	private static final int IDX_GDP = 5;
-
-	static String[] fromCSV(String line, char sep) {
-		List<String> fields = new ArrayList<>();
-		StringBuilder sb = new StringBuilder();
-		boolean inQuotes = false;
-		for (int i = 0; i < line.length(); i++) {
-			char ch = line.charAt(i);
-			if (inQuotes) {
-				if (ch == '"') {
-					if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
-						sb.append('"');
-						i++;
-					} else {
-						inQuotes = false;
-					}
-				} else {
-					sb.append(ch);
-				}
-			} else if (ch == '"') {
-				inQuotes = true;
-			} else if (ch == sep) {
-				fields.add(sb.toString());
-				sb.setLength(0);
-			} else {
-				sb.append(ch);
-			}
-		}
-		fields.add(sb.toString());
-		return fields.toArray(new String[0]);
-	}
 
 	static Map<String, Tuple2<String, Long>> analyse(JavaSparkContext sc, int year) throws Exception {
 		File inFile = new File("ghg" + year + ".csv");
