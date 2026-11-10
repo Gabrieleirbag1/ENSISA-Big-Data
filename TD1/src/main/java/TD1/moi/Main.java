@@ -102,13 +102,26 @@ public class Main {
 			System.out.println("-".repeat(95));
 
 			d2018
-				.join(d2022)
+				.mapToPair(t -> new Tuple2<String, Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>>(
+					t._1(), new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
+						true, false, t._2()._1(), new Tuple2<Long, Long>(t._2()._2(), 0L))))
+				.union(d2022.mapToPair(t -> new Tuple2<String, Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>>(
+					t._1(), new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
+						false, true, "", new Tuple2<Long, Long>(0L, t._2())))))
+				.reduceByKey((left, right) -> new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
+					left._1() || right._1(),
+					left._2() || right._2(),
+					left._3().isEmpty() ? right._3() : left._3(),
+					new Tuple2<Long, Long>(
+						left._4()._1() == 0L ? right._4()._1() : left._4()._1(),
+						left._4()._2() == 0L ? right._4()._2() : left._4()._2())))
+				.filter(t -> t._2()._1() && t._2()._2())
 				// continent -> (pays, d2018, d2022, amélioration en % entier)
 				.mapToPair(t -> {
-					long a = t._2()._1()._2();
-					long b = t._2()._2();
+					long a = t._2()._4()._1();
+					long b = t._2()._4()._2();
 					return new Tuple2<String, Tuple4<String, Long, Long, Long>>(
-						t._2()._1()._1(),
+						t._2()._3(),
 						new Tuple4<String, Long, Long, Long>(t._1(), a, b, (b - a) * 100L / a));
 				})
 				.reduceByKey((x, y) -> x._4() >= y._4() ? x : y)
