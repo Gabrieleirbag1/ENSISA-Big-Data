@@ -7,10 +7,10 @@ import java.io.File;
 import java.net.URI;
 
 import scala.Tuple2;
+import scala.Tuple3;
 import scala.Tuple4;
 
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -86,42 +86,31 @@ public class Main {
 				})
 				.filter(c -> c._4() > 0);
 
-			// pays -> (continent, découplage 2018)
-			JavaPairRDD<String, Tuple2<String, Long>> d2018 = decoupling
-				.filter(c -> c._3().equals("2018"))
-				.mapToPair(c -> new Tuple2<String, Tuple2<String, Long>>(c._2(), new Tuple2<String, Long>(c._1(), c._4())));
-
-			// pays -> découplage 2022
-			JavaPairRDD<String, Long> d2022 = decoupling
-				.filter(c -> c._3().equals("2022"))
-				.mapToPair(c -> new Tuple2<String, Long>(c._2(), c._4()));
-
 			System.out.println();
 			System.out.printf("%-15s | %-20s | %-15s | %-15s | %s%n",
 				"Continent", "Pays", "Découplage 2018", "Découplage 2022", "Amélioration (%)");
 			System.out.println("-".repeat(95));
 
-			d2018
-				.mapToPair(t -> new Tuple2<String, Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>>(
-					t._1(), new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
-						true, false, t._2()._1(), new Tuple2<Long, Long>(t._2()._2(), 0L))))
-				.union(d2022.mapToPair(t -> new Tuple2<String, Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>>(
-					t._1(), new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
-						false, true, "", new Tuple2<Long, Long>(0L, t._2())))))
-				.reduceByKey((left, right) -> new Tuple4<Boolean, Boolean, String, Tuple2<Long, Long>>(
-					left._1() || right._1(),
-					left._2() || right._2(),
-					left._3().isEmpty() ? right._3() : left._3(),
-					new Tuple2<Long, Long>(
-						left._4()._1() == 0L ? right._4()._1() : left._4()._1(),
-						left._4()._2() == 0L ? right._4()._2() : left._4()._2())))
-				.filter(t -> t._2()._1() && t._2()._2())
+			decoupling
+				// pays -> (continent, découplage 2018, découplage 2022)
+				.mapToPair(c -> new Tuple2<String, Tuple3<String, Long, Long>>(
+					c._2(),
+					new Tuple3<String, Long, Long>(
+						c._1(),
+						c._3().equals("2018") ? c._4() : 0L,
+						c._3().equals("2022") ? c._4() : 0L)))
+				.reduceByKey((x, y) -> new Tuple3<String, Long, Long>(
+					x._1(),
+					Math.max(x._2(), y._2()),
+					Math.max(x._3(), y._3())))
+				// on ne garde que les pays présents en 2018 ET en 2022
+				.filter(t -> t._2()._2() > 0 && t._2()._3() > 0)
 				// continent -> (pays, d2018, d2022, amélioration en % entier)
 				.mapToPair(t -> {
-					long a = t._2()._4()._1();
-					long b = t._2()._4()._2();
+					long a = t._2()._2();
+					long b = t._2()._3();
 					return new Tuple2<String, Tuple4<String, Long, Long, Long>>(
-						t._2()._3(),
+						t._2()._1(),
 						new Tuple4<String, Long, Long, Long>(t._1(), a, b, (b - a) * 100L / a));
 				})
 				.reduceByKey((x, y) -> x._4() >= y._4() ? x : y)
