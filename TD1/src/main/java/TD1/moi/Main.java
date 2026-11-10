@@ -5,8 +5,6 @@ import static TD1.moi.utils.Utils.fromCSV;
 
 import java.io.File;
 import java.net.URI;
-import java.util.Map;
-import java.util.TreeMap;
 
 import scala.Tuple2;
 import scala.Tuple4;
@@ -18,67 +16,11 @@ import org.apache.spark.api.java.JavaSparkContext;
 
 public class Main {
 
-	private static final int IDX_CONTINENT = 3;
 	private static final int IDX_COUNTRY = 0;
-	private static final int IDX_TOTAL_GHG = 76;
+	private static final int IDX_YEAR = 1;
+	private static final int IDX_CONTINENT = 3;
 	private static final int IDX_GDP = 5;
-
-	static Map<String, Tuple2<String, Long>> analyse(JavaSparkContext sc, int year) throws Exception {
-		File inFile = new File("ghg" + year + ".csv");
-		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-" + year + ".csv").toURL(), inFile);
-
-		JavaRDD<String> raw = sc.textFile(inFile.getAbsolutePath(), 14 * 5);
-
-		JavaRDD<Tuple4<String, String, String, String>> rawCurated = raw
-			.filter(l -> !l.startsWith("country,year,"))
-			.map(l -> fromCSV(l, ','))
-			.filter(c -> c.length > IDX_TOTAL_GHG)
-			.map(c -> new Tuple4<String, String, String, String>(c[IDX_CONTINENT], c[IDX_COUNTRY], c[IDX_TOTAL_GHG], c[IDX_GDP]))
-			.filter(c -> !c._1().isBlank())
-			.filter(c -> !c._2().isBlank())
-			.filter(c -> !c._3().isBlank())
-			.filter(c -> !c._4().isBlank());
-
-		JavaRDD<Tuple4<String, String, Integer, Integer>> countries = rawCurated
-			.map(c -> {
-				String ghgAsStr = c._3();
-				int coma = ghgAsStr.indexOf('.');
-				int ghg = -1;
-				if (coma >= 0) {
-					int decimals = ghgAsStr.length() - coma - 1;
-					if (decimals == 3) {
-						ghgAsStr = ghgAsStr.substring(0, coma) + ghgAsStr.substring(coma + 1);
-						try {
-							ghg = Integer.parseInt(ghgAsStr);
-						} catch (NumberFormatException x) {}
-					}
-				}
-				return new Tuple4<String, String, Integer, String>(c._1(), c._2(), ghg, c._4());
-			})
-			.map(c -> {
-				String gdpAsStr = c._4();
-				int gdp = -1;
-				int coma = gdpAsStr.indexOf('.');
-				if (coma < 0) coma = gdpAsStr.length() - 6;
-				else coma -= 6;
-				if (coma > 0) {
-					gdpAsStr = gdpAsStr.substring(0, coma);
-					try {
-						gdp = Integer.parseInt(gdpAsStr);
-					} catch (NumberFormatException x) {}
-				}
-				return new Tuple4<String, String, Integer, Integer>(c._1(), c._2(), c._3(), gdp);
-			})
-			.filter(c -> c._3() > 0 && c._4() >= 0); // évite division par zéro / valeurs invalides
-
-		JavaPairRDD<String, Tuple2<String, Long>> result = countries
-			.mapToPair(c -> new Tuple2<String, Tuple2<String, Long>>(
-				c._1(),
-				new Tuple2<String, Long>(c._2(), ((long) c._4() * 1_000L) / c._3())))
-			.reduceByKey((c1, c2) -> c1._2() > c2._2() ? c1 : c2);
-
-		return new TreeMap<>(result.collectAsMap()); // trié par continent
-	}
+	private static final int IDX_TOTAL_GHG = 76;
 
 	public static void main(String[] args) throws Exception {
 
@@ -99,30 +41,83 @@ public class Main {
 			conf.setJars(new String[] { source });
 		}
 
+		File file2018 = new File("ghg2018.csv");
+		File file2022 = new File("ghg2022.csv");
+		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-2018.csv").toURL(), file2018);
+		downloadIfAbsent(new URI("https://svn.ensisa.uha.fr/bd/co2/owid-co2-data-continents-2022.csv").toURL(), file2022);
+
 		try (JavaSparkContext sc = new JavaSparkContext(conf)) {
-			Map<String, Tuple2<String, Long>> r2018 = analyse(sc, 2018);
-			Map<String, Tuple2<String, Long>> r2022 = analyse(sc, 2022);
 
-			System.out.println("\n=== 2018 ===");
-			r2018.forEach((k, v) -> System.out.println(k + " -> " + v));
-			System.out.println("\n=== 2022 ===");
-			r2022.forEach((k, v) -> System.out.println(k + " -> " + v));
+			// Découplage = PIB / GES, calculé en entiers.
+			// Résultat : (continent, pays, année, découplage), uniquement 2018 et 2022.
+			JavaRDD<Tuple4<String, String, String, Long>> decoupling = sc
+				.textFile(file2018.getAbsolutePath() + "," + file2022.getAbsolutePath(), 14 * 5)
+				.filter(l -> !l.startsWith("country,year,"))
+				.map(l -> fromCSV(l, ','))
+				.filter(c -> c.length > IDX_TOTAL_GHG)
+				.filter(c -> c[IDX_YEAR].equals("2018") || c[IDX_YEAR].equals("2022"))
+				.filter(c -> !c[IDX_CONTINENT].isBlank())
+				.filter(c -> !c[IDX_COUNTRY].isBlank())
+				.filter(c -> !c[IDX_TOTAL_GHG].isBlank())
+				.filter(c -> !c[IDX_GDP].isBlank())
+				.map(c -> {
+					// GES : format XX.XXX -> entier (milliers de tonnes)
+					int ghg = -1;
+					String ghgAsStr = c[IDX_TOTAL_GHG];
+					int coma = ghgAsStr.indexOf('.');
+					if (coma >= 0 && ghgAsStr.length() - coma - 1 == 3) {
+						try {
+							ghg = Integer.parseInt(ghgAsStr.substring(0, coma) + ghgAsStr.substring(coma + 1));
+						} catch (NumberFormatException x) {}
+					}
 
-			System.out.println("\n=== Comparatif ===");
-			System.out.printf("%-15s | %-22s | %-22s | %s%n", "Continent", "2018", "2022", "Évolution");
-			TreeMap<String, Boolean> continents = new TreeMap<>();
-			r2018.keySet().forEach(k -> continents.put(k, true));
-			r2022.keySet().forEach(k -> continents.put(k, true));
-			for (String cont : continents.keySet()) {
-				Tuple2<String, Long> a = r2018.get(cont);
-				Tuple2<String, Long> b = r2022.get(cont);
-				String sa = a == null ? "n/a" : a._1() + " (" + a._2() + ")";
-				String sb = b == null ? "n/a" : b._1() + " (" + b._2() + ")";
-				String evo = (a == null || b == null) ? "n/a"
-					: String.format("%+.1f %%", 100.0 * (b._2() - a._2()) / a._2());
-				String same = (a != null && b != null && a._1().equals(b._1())) ? " [même pays]" : "";
-				System.out.printf("%-15s | %-22s | %-22s | %s%s%n", cont, sa, sb, evo, same);
-			}
+					// PIB : partie entière en millions
+					int gdp = -1;
+					String gdpAsStr = c[IDX_GDP];
+					coma = gdpAsStr.indexOf('.');
+					if (coma < 0) coma = gdpAsStr.length() - 6;
+					else coma -= 6;
+					if (coma > 0) {
+						try {
+							gdp = Integer.parseInt(gdpAsStr.substring(0, coma));
+						} catch (NumberFormatException x) {}
+					}
+
+					long ratio = (ghg > 0 && gdp > 0) ? ((long) gdp * 1_000L) / ghg : -1L;
+					return new Tuple4<String, String, String, Long>(c[IDX_CONTINENT], c[IDX_COUNTRY], c[IDX_YEAR], ratio);
+				})
+				.filter(c -> c._4() > 0);
+
+			// pays -> (continent, découplage 2018)
+			JavaPairRDD<String, Tuple2<String, Long>> d2018 = decoupling
+				.filter(c -> c._3().equals("2018"))
+				.mapToPair(c -> new Tuple2<String, Tuple2<String, Long>>(c._2(), new Tuple2<String, Long>(c._1(), c._4())));
+
+			// pays -> découplage 2022
+			JavaPairRDD<String, Long> d2022 = decoupling
+				.filter(c -> c._3().equals("2022"))
+				.mapToPair(c -> new Tuple2<String, Long>(c._2(), c._4()));
+
+			System.out.println();
+			System.out.printf("%-15s | %-20s | %-15s | %-15s | %s%n",
+				"Continent", "Pays", "Découplage 2018", "Découplage 2022", "Amélioration (%)");
+			System.out.println("-".repeat(95));
+
+			d2018
+				.join(d2022)
+				// continent -> (pays, d2018, d2022, amélioration en % entier)
+				.mapToPair(t -> {
+					long a = t._2()._1()._2();
+					long b = t._2()._2();
+					return new Tuple2<String, Tuple4<String, Long, Long, Long>>(
+						t._2()._1()._1(),
+						new Tuple4<String, Long, Long, Long>(t._1(), a, b, (b - a) * 100L / a));
+				})
+				.reduceByKey((x, y) -> x._4() >= y._4() ? x : y)
+				.sortByKey()
+				.collect() // seule action
+				.forEach(t -> System.out.printf("%-15s | %-20s | %-15d | %-15d | %+d%n",
+					t._1(), t._2()._1(), t._2()._2(), t._2()._3(), t._2()._4()));
 		}
 
 		long s = (System.currentTimeMillis() - start) / 1000;
