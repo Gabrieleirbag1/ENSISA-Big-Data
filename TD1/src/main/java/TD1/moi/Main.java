@@ -48,8 +48,7 @@ public class Main {
 
 		try (JavaSparkContext sc = new JavaSparkContext(conf)) {
 
-			// Découplage = PIB / GES, calculé en entiers.
-			// Résultat : (continent, pays, année, découplage), uniquement 2018 et 2022.
+			// résultat : (continent, pays, année, découplage), uniquement 2018 et 2022.
 			JavaRDD<Tuple4<String, String, String, Long>> decoupling = sc
 				.textFile(file2018.getAbsolutePath() + "," + file2022.getAbsolutePath(), 14 * 5)
 				.filter(l -> !l.startsWith("country,year,"))
@@ -61,7 +60,6 @@ public class Main {
 				.filter(c -> !c[IDX_TOTAL_GHG].isBlank())
 				.filter(c -> !c[IDX_GDP].isBlank())
 				.map(c -> {
-					// GES : format XX.XXX -> entier (milliers de tonnes)
 					int ghg = -1;
 					String ghgAsStr = c[IDX_TOTAL_GHG];
 					int coma = ghgAsStr.indexOf('.');
@@ -71,7 +69,7 @@ public class Main {
 						} catch (NumberFormatException x) {}
 					}
 
-					// PIB : partie entière en millions
+					// PIB : entier en millions
 					int gdp = -1;
 					String gdpAsStr = c[IDX_GDP];
 					coma = gdpAsStr.indexOf('.');
